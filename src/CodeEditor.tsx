@@ -101,7 +101,13 @@ const CodeEditor: React.FC = () => {
         height='500px'
         width={window.innerWidth}
         defaultLanguage='typescript'
-        defaultValue='// Your TypeScript code here'
+        defaultValue={`
+function greet(name: string) {
+  return "Hello, " + name;
+}
+greet("World");
+greet(22);
+        `}
         onMount={handleEditorDidMount}
         options={{
           fontSize: fontSize,
