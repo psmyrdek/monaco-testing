@@ -6,78 +6,100 @@ const CodeEditor: React.FC = () => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useMonaco();
   const [fontSize, setFontSize] = useState<number>(14);
-  const [isValid, setIsValid] = useState<boolean>(false);
+  const [isValid, setIsValid] = useState<boolean | null>(null);
 
   useEffect(() => {
+    console.log("Monaco instance available:", !!monacoRef);
     if (monacoRef) {
+      console.log("Setting up TypeScript...");
       monacoRef.languages.typescript.typescriptDefaults.setCompilerOptions({
         target: monacoRef.languages.typescript.ScriptTarget.ES2015,
         allowNonTsExtensions: true,
       });
 
-      // Ensure TypeScript is registered
       monacoRef.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
         noSemanticValidation: false,
         noSyntaxValidation: false,
       });
+      console.log("TypeScript setup complete");
     }
   }, [monacoRef]);
 
   const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
+    console.log("Editor mounted");
     editorRef.current = editor;
 
-    // Set print width and other editor options
-    editor.getModel()?.updateOptions({
-      tabSize: 2,
-    });
-
-    // Set initial font size
+    console.log("Setting initial font size");
     editor.updateOptions({fontSize});
 
-    // Apply dark theme
+    console.log("Applying dark theme");
     monacoInstance.editor.setTheme("vs-dark");
 
-    // Set up change event listener for validation
+    console.log("Setting up content change listener");
     editor.onDidChangeModelContent(() => {
+      console.log("Content changed, triggering validation");
       validateTypeScript();
     });
 
-    // Initial validation
+    console.log("Running initial validation");
     validateTypeScript();
   };
 
   const validateTypeScript = () => {
+    console.log("Validating TypeScript...");
     if (editorRef.current && monacoRef) {
       const model = editorRef.current.getModel();
       if (model) {
-        monacoRef.languages.typescript.getTypeScriptWorker().then((worker) => {
-          worker(model.uri).then((client) => {
-            client
-              .getSemanticDiagnostics(model.uri.toString())
-              .then((diagnostics) => {
-                console.log(diagnostics);
-                setIsValid(diagnostics.length === 0);
-              });
+        console.log("Model available, getting TypeScript worker");
+        monacoRef.languages.typescript
+          .getTypeScriptWorker()
+          .then((worker) => {
+            console.log("TypeScript worker obtained");
+            return worker(model.uri);
+          })
+          .then((client) => {
+            console.log("TypeScript client obtained");
+            return client.getSemanticDiagnostics(model.uri.toString());
+          })
+          .then((diagnostics) => {
+            console.log("Diagnostics:", diagnostics);
+            setIsValid(diagnostics.length === 0);
+          })
+          .catch((error) => {
+            console.error("Error during TypeScript validation:", error);
+            setIsValid(null);
           });
-        });
+      } else {
+        console.log("No model available");
+        setIsValid(null);
       }
+    } else {
+      console.log("Editor or Monaco not available");
+      setIsValid(null);
     }
   };
 
-  const formatCode = () => {
-    editorRef.current?.getAction("editor.action.formatDocument")?.run();
-  };
-
   const changeFontSize = (newSize: number) => {
+    console.log("Changing font size to", newSize);
     setFontSize(newSize);
     editorRef.current?.updateOptions({fontSize: newSize});
+  };
+
+  const getValidationMessage = () => {
+    if (isValid === null) {
+      return "Validation status: Unknown";
+    } else if (isValid) {
+      return "✓ TypeScript code is valid";
+    } else {
+      return "✗ TypeScript code is invalid";
+    }
   };
 
   return (
     <div>
       <Editor
         height='500px'
-        width={window.innerWidth - 50}
+        width={window.innerWidth}
         defaultLanguage='typescript'
         defaultValue='// Your TypeScript code here'
         onMount={handleEditorDidMount}
@@ -87,7 +109,6 @@ const CodeEditor: React.FC = () => {
         }}
       />
       <div>
-        <button onClick={formatCode}>Format Code</button>
         <label htmlFor='fontSize' style={{marginLeft: "10px"}}>
           Font Size:{" "}
         </label>
@@ -99,8 +120,13 @@ const CodeEditor: React.FC = () => {
           min='8'
           max='30'
         />
-        <span style={{color: isValid ? "green" : "red", marginLeft: "10px"}}>
-          TypeScript code is {isValid ? "valid" : "invalid"}
+        <span
+          style={{
+            marginLeft: "10px",
+            color: isValid === null ? "gray" : isValid ? "green" : "red",
+          }}
+        >
+          {getValidationMessage()}
         </span>
       </div>
     </div>
