@@ -29,7 +29,6 @@ const CodeEditor: React.FC = () => {
     // Set print width and other editor options
     editor.getModel()?.updateOptions({
       tabSize: 2,
-      printWidth: 100,
     });
 
     // Set initial font size
